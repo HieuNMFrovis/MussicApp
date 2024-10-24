@@ -3,19 +3,30 @@ import 'package:rxdart/rxdart.dart';
 
 class AudioPlayerManager {
   AudioPlayerManager({required this.songUrl});
+
   final player = AudioPlayer();
   Stream<DurationState>? durationState;
   String songUrl;
 
   void init() {
     durationState = Rx.combineLatest2<Duration, PlaybackEvent, DurationState>(
-        player.positionStream,
-        player.playbackEventStream,
-        (position, PlaybackEvent) => DurationState(
-            progress: position,
-            buffered: PlaybackEvent.bufferedPosition,
-            total: PlaybackEvent.duration));
+      player.positionStream,
+      player.playbackEventStream,
+      (position, PlaybackEvent) => DurationState(
+          progress: position,
+          buffered: PlaybackEvent.bufferedPosition,
+          total: PlaybackEvent.duration),
+    );
     player.setUrl(songUrl);
+  }
+
+  void updateSongUrl(String url) {
+    songUrl = url;
+    init();
+  }
+
+  void dispose() {
+    player.dispose();
   }
 }
 

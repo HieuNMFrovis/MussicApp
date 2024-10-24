@@ -87,10 +87,10 @@ class _HomeTabPageState extends State<HomeTabPage> {
 
   @override
   void initState() {
+    super.initState();
     _viewModel = MusicAppViewModel();
     _viewModel.loadSongs();
     observerData();
-    super.initState();
   }
 
   @override
@@ -100,7 +100,8 @@ class _HomeTabPageState extends State<HomeTabPage> {
     );
   }
 
-  void dispoes() {
+  @override
+  void dispose() {
     _viewModel.songStream.close();
     super.dispose();
   }
@@ -148,6 +149,7 @@ class _HomeTabPageState extends State<HomeTabPage> {
 
   void observerData() {
     _viewModel.songStream.stream.listen((songList) {
+      print("Received songs: ${songList.length}"); // Debug statement
       setState(() {
         songs.addAll(songList);
       });
