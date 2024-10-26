@@ -1,4 +1,5 @@
 import 'dart:ffi';
+import 'dart:math';
 
 import 'package:audio_video_progress_bar/audio_video_progress_bar.dart';
 import 'package:flutter/cupertino.dart';
@@ -37,9 +38,12 @@ class _NowPlayingPageState extends State<NowPlayingPage>
   late AudioPlayerManager _audioPlayerManager;
   late int _selectedItemIndex;
   late Song _song;
+  late double _currentAnimationPosition;
+  bool _isShuffle = false;
   @override
   void initState() {
     super.initState();
+    _currentAnimationPosition = 0.0;
     _song = widget.playingSong;
     _imageAnimController = AnimationController(
       vsync: this,
@@ -71,7 +75,7 @@ class _NowPlayingPageState extends State<NowPlayingPage>
             child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(widget.playingSong.album),
+            Text(_song.album),
             const SizedBox(
               height: 16,
             ),
@@ -85,7 +89,7 @@ class _NowPlayingPageState extends State<NowPlayingPage>
                   borderRadius: BorderRadius.circular(radius),
                   child: FadeInImage.assetNetwork(
                     placeholder: 'assets/itune.png',
-                    image: widget.playingSong.image,
+                    image: _song.image,
                     width: screenWidth - delta,
                     height: screenWidth - delta,
                     imageErrorBuilder: (context, error, stackTrace) {
@@ -111,7 +115,7 @@ class _NowPlayingPageState extends State<NowPlayingPage>
                     Column(
                       children: [
                         Text(
-                          widget.playingSong.title,
+                          _song.title,
                           style: Theme.of(context)
                               .textTheme
                               .bodyMedium!
@@ -123,7 +127,7 @@ class _NowPlayingPageState extends State<NowPlayingPage>
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          widget.playingSong.artist,
+                          _song.artist,
                           style: Theme.of(context)
                               .textTheme
                               .bodyMedium!
@@ -162,6 +166,7 @@ class _NowPlayingPageState extends State<NowPlayingPage>
   @override
   void dispose() {
     _audioPlayerManager.dispose();
+    _imageAnimController.dispose();
     super.dispose();
   }
 
@@ -170,10 +175,10 @@ class _NowPlayingPageState extends State<NowPlayingPage>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          const MediaButtonControl(
-            function: null,
+          MediaButtonControl(
+            function: _setShuffle,
             icon: Icons.shuffle,
-            color: Colors.deepPurple,
+            color: _getShuffleColor(),
             size: 24,
           ),
           MediaButtonControl(
@@ -244,6 +249,8 @@ class _NowPlayingPageState extends State<NowPlayingPage>
             return MediaButtonControl(
               function: () {
                 _audioPlayerManager.player.play();
+                _imageAnimController.forward(from: _currentAnimationPosition);
+                _imageAnimController.repeat();
               },
               icon: Icons.play_arrow,
               color: null,
@@ -253,14 +260,22 @@ class _NowPlayingPageState extends State<NowPlayingPage>
             return MediaButtonControl(
               function: () {
                 _audioPlayerManager.player.pause();
+                _imageAnimController.stop();
+                _currentAnimationPosition = _imageAnimController.value;
               },
               icon: Icons.pause,
               color: null,
               size: 48,
             );
           } else {
+            if (progressingSate == ProcessingState.completed) {
+              _imageAnimController.stop();
+              _currentAnimationPosition = 0.0;
+            }
             return MediaButtonControl(
               function: () {
+                _imageAnimController.forward(from: _currentAnimationPosition);
+                _imageAnimController.repeat();
                 _audioPlayerManager.player.seek(Duration.zero);
               },
               icon: Icons.replay,
@@ -271,8 +286,27 @@ class _NowPlayingPageState extends State<NowPlayingPage>
         });
   }
 
+  void _setShuffle() {
+    setState(() {
+      _isShuffle = !_isShuffle;
+    });
+  }
+
+  Color? _getShuffleColor() {
+    return _isShuffle ? Colors.deepPurple : Colors.grey;
+  }
+
   void _setNextSong() {
-    ++_selectedItemIndex;
+    if (_isShuffle) {
+      var random = Random();
+      _selectedItemIndex = random.nextInt(widget.songs.length);
+    } else {
+      ++_selectedItemIndex;
+    }
+    if (_selectedItemIndex >= widget.songs.length) {
+      _selectedItemIndex = _selectedItemIndex % widget.songs.length;
+    }
+
     final nextSong = widget.songs[_selectedItemIndex];
     _audioPlayerManager.updateSongUrl(nextSong.source);
     setState(() {
@@ -281,7 +315,15 @@ class _NowPlayingPageState extends State<NowPlayingPage>
   }
 
   void _setPreSong() {
-    --_selectedItemIndex;
+    if (_isShuffle) {
+      var random = Random();
+      _selectedItemIndex = random.nextInt(widget.songs.length);
+    } else {
+      --_selectedItemIndex;
+    }
+    if (_selectedItemIndex < 0) {
+      _selectedItemIndex = (-1 * _selectedItemIndex) % widget.songs.length;
+    }
     final nextSong = widget.songs[_selectedItemIndex];
     _audioPlayerManager.updateSongUrl(nextSong.source);
     setState(() {
